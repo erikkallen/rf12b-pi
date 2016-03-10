@@ -3,10 +3,9 @@
 
 import time                     #For the usual naps
 import spidev                  #SPI interface
-import requests                  #To publisch data to Domoticz
 import json                     #For writing index values to file
 import RPi.GPIO as GPIO
-from CRCCCITT import CRCCCITT
+import crcmod.predefined
 
 #RF12 command codes
 RF_RECV_CONTROL=0x94A0
@@ -34,6 +33,7 @@ _recv_buffer = [0] * 255
 _r_buf_pos = 0
 _remaining = 0
 _packet_received = False
+crc16_func = crcmod.predefined.mkCrcFun('crc-ccitt-false')
 
 def status():
     return int(writeCmd(STATUS_READ))
@@ -123,7 +123,8 @@ def sendBuffer(buf) :
     # Calc crc
     #crc = checkCRC(buf)
     buf.insert(0,len(buf)+1)
-    crc = CRCCCITT(version="FFFF").calculate(bytearray(buf))
+    crc = crc16_func(str(bytearray(buf)))
+    #CRCCCITT(version="FFFF").calculate(bytearray(buf))
     buf.pop(0)
     print(crc)
     buf[CRC_OFFSET+1] = (crc >> 8) & 0xff;
@@ -157,10 +158,10 @@ try:
                 print(recv_buffer)
                 fifoReset()
         #print status()
-        #if int(time.time()) > nextsend:
-        #    sendBuffer([1,0,1,0,1,0,0,66,66,61,57,56])
-        #    print("Status: %x" % status())
-        #    nextsend = int(time.time()) + 5
+        if int(time.time()) > nextsend:
+            sendBuffer([1,0,1,0,1,0,0,66,66,61,57,56])
+            print("Status: %x" % status())
+            nextsend = int(time.time()) + 5
         #if packetAvailable():
         #    receivePacket()
 except KeyboardInterrupt:                     # Ctrl+C pressed, so...
